@@ -345,7 +345,11 @@ bool PartyBotAI::AttackStart(Unit* pVictim)
         else if (me->HasDistanceCasterMovement())
             me->SetCasterChaseDistance(0.0f);
 
-        me->GetMotionMaster()->MoveChase(pVictim, 1.0f, GetRole() == ROLE_MELEE_DPS ? 3.0f : 0.0f);
+        if (!m_isStaying)
+        {
+            me->GetMotionMaster()->MoveChase(pVictim, 1.0f, GetRole() == ROLE_MELEE_DPS ? 3.0f : 0.0f);
+        }
+        
         return true;
     }
 
@@ -838,10 +842,13 @@ void PartyBotAI::UpdateAI(uint32 const diff)
                 auto auraList = pLeader->GetAurasByType(SPELL_AURA_MOUNTED);
                 if (!auraList.empty())
                 {
-                    bool oldState = me->HasCheatOption(PLAYER_CHEAT_NO_CAST_TIME);
+                    bool oldStateCastTime = me->HasCheatOption(PLAYER_CHEAT_NO_CAST_TIME);
+                    bool oldStatePower = me->HasCheatOption(PLAYER_CHEAT_NO_POWER);
                     me->SetCheatOption(PLAYER_CHEAT_NO_CAST_TIME, true);
+                    me->SetCheatOption(PLAYER_CHEAT_NO_POWER, true);
                     me->CastSpell(me, (*auraList.begin())->GetId(), true);
-                    me->SetCheatOption(PLAYER_CHEAT_NO_CAST_TIME, oldState);
+                    me->SetCheatOption(PLAYER_CHEAT_NO_CAST_TIME, oldStateCastTime);
+                    me->SetCheatOption(PLAYER_CHEAT_NO_POWER, oldStatePower);
                 } 
             }
         }
@@ -855,8 +862,8 @@ void PartyBotAI::UpdateAI(uint32 const diff)
         {
             if (!m_isStaying)
             {
-            if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE)
-                me->GetMotionMaster()->MoveFollow(pLeader, urand(PB_MIN_FOLLOW_DIST, PB_MAX_FOLLOW_DIST), frand(PB_MIN_FOLLOW_ANGLE, PB_MAX_FOLLOW_ANGLE));
+                if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE)
+                    me->GetMotionMaster()->MoveFollow(pLeader, urand(PB_MIN_FOLLOW_DIST, PB_MAX_FOLLOW_DIST), frand(PB_MIN_FOLLOW_ANGLE, PB_MAX_FOLLOW_ANGLE));
             }
         }
         else
@@ -873,6 +880,7 @@ void PartyBotAI::UpdateAI(uint32 const diff)
                 {
                     case IDLE_MOTION_TYPE:
                     case FOLLOW_MOTION_TYPE:
+                    
                         me->GetMotionMaster()->MoveChase(pVictim);
                         break;
                 }
@@ -1221,7 +1229,10 @@ void PartyBotAI::UpdateInCombatAI_Paladin()
             if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == IDLE_MOTION_TYPE
                 && !me->CanReachWithMeleeAutoAttack(pVictim))
             {
-                me->GetMotionMaster()->MoveChase(pVictim);
+                if (!m_isStaying)
+                {
+                    me->GetMotionMaster()->MoveChase(pVictim);
+                }
             }
         }
     }
@@ -1424,7 +1435,10 @@ void PartyBotAI::UpdateInCombatAI_Hunter()
         if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == IDLE_MOTION_TYPE
             && me->GetDistance(pVictim) > 30.0f)
         {
-            me->GetMotionMaster()->MoveChase(pVictim, 25.0f);
+            if (!m_isStaying)
+            {
+                me->GetMotionMaster()->MoveChase(pVictim, 25.0f);
+            }
         }
 
         if (m_spells.hunter.pVolley &&
@@ -1569,15 +1583,33 @@ void PartyBotAI::UpdateOutOfCombatAI_Mage()
 {
     if (m_spells.mage.pArcaneBrilliance)
     {
-        if (CanTryToCastSpell(me, m_spells.mage.pArcaneBrilliance))
+        // Check each member of the group to see if they have Arcane Brilliance
+        Group* pGroup = me->GetGroup();
+        for (GroupReference* itr = pGroup->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
-            if (DoCastSpell(me, m_spells.mage.pArcaneBrilliance) == SPELL_CAST_OK)
+            if (Player* pMember = itr->getSource())
             {
-                m_isBuffing = true;
-                me->ClearTarget();
-                return;
+                if (CanTryToCastSpell(pMember, m_spells.mage.pArcaneBrilliance))
+                {
+                    if (DoCastSpell(pMember, m_spells.mage.pArcaneBrilliance) == SPELL_CAST_OK)
+                    {
+                        m_isBuffing = true;
+                        me->ClearTarget();
+                        return;
+                    }
+                }
             }
         }
+        /* Old */
+        // if (CanTryToCastSpell(me, m_spells.mage.pArcaneBrilliance))
+        // {
+        //     if (DoCastSpell(me, m_spells.mage.pArcaneBrilliance) == SPELL_CAST_OK)
+        //     {
+        //         m_isBuffing = true;
+        //         me->ClearTarget();
+        //         return;
+        //     }
+        // }
     }
     else if (m_spells.mage.pArcaneIntellect)
     {
@@ -1659,7 +1691,10 @@ void PartyBotAI::UpdateInCombatAI_Mage()
         if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == IDLE_MOTION_TYPE
             && me->GetDistance(pVictim) > 30.0f)
         {
-            me->GetMotionMaster()->MoveChase(pVictim, 25.0f);
+            if (!m_isStaying)
+            {
+                me->GetMotionMaster()->MoveChase(pVictim, 25.0f);
+            }
         }
         else if (GetAttackersInRangeCount(10.0f))
         {
@@ -2120,7 +2155,10 @@ void PartyBotAI::UpdateInCombatAI_Priest()
         if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == IDLE_MOTION_TYPE
             && me->GetDistance(pVictim) > 30.0f)
         {
-            me->GetMotionMaster()->MoveChase(pVictim, 25.0f);
+            if (!m_isStaying)
+            {
+                me->GetMotionMaster()->MoveChase(pVictim, 25.0f);
+            }
         }
 
         if (me->GetShapeshiftForm() == FORM_NONE)
@@ -2318,7 +2356,10 @@ void PartyBotAI::UpdateInCombatAI_Warlock()
         if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == IDLE_MOTION_TYPE
             && me->GetDistance(pVictim) > 30.0f)
         {
-            me->GetMotionMaster()->MoveChase(pVictim, 25.0f);
+            if (!m_isStaying)
+            {
+                me->GetMotionMaster()->MoveChase(pVictim, 25.0f);
+            }
         }
 
         if (m_spells.warlock.pHowlofTerror &&
@@ -2611,7 +2652,10 @@ void PartyBotAI::UpdateInCombatAI_Warrior()
         if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == IDLE_MOTION_TYPE
             && !me->CanReachWithMeleeAutoAttack(pVictim))
         {
-            me->GetMotionMaster()->MoveChase(pVictim);
+            if (!m_isStaying)
+            {
+                me->GetMotionMaster()->MoveChase(pVictim);
+            }
         }
 
         if (me->GetPower(POWER_RAGE) > 30)
@@ -3138,7 +3182,10 @@ void PartyBotAI::UpdateInCombatAI_Druid()
             if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == IDLE_MOTION_TYPE
                 && !me->CanReachWithMeleeAutoAttack(pVictim))
             {
-                me->GetMotionMaster()->MoveChase(pVictim);
+                if (!m_isStaying)
+                {
+                    me->GetMotionMaster()->MoveChase(pVictim);
+                }
             }
 
             if (me->HasAuraType(SPELL_AURA_MOD_STEALTH))
@@ -3242,7 +3289,10 @@ void PartyBotAI::UpdateInCombatAI_Druid()
             if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == IDLE_MOTION_TYPE
                 && !me->CanReachWithMeleeAutoAttack(pVictim))
             {
-                me->GetMotionMaster()->MoveChase(pVictim);
+                if (!m_isStaying)
+                {
+                    me->GetMotionMaster()->MoveChase(pVictim);
+                }
             }
 
             if (m_spells.druid.pFeralCharge &&
@@ -3306,7 +3356,10 @@ void PartyBotAI::UpdateInCombatAI_Druid()
             if (me->GetMotionMaster()->GetCurrentMovementGeneratorType() == IDLE_MOTION_TYPE &&
                 me->GetDistance(pVictim) > 30.0f)
             {
-                me->GetMotionMaster()->MoveChase(pVictim, 25.0f);
+                if (!m_isStaying)
+                {
+                    me->GetMotionMaster()->MoveChase(pVictim, 25.0f);
+                }
             }
             else if (pVictim->CanReachWithMeleeAutoAttack(me) &&
                     (pVictim->GetVictim() == me) &&
