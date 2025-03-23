@@ -92,17 +92,7 @@ public:
     void UpdateOutOfCombatAI_Druid() final;
 
     bool IsStaying() const { return m_isStaying; }
-
-    void SetStaying(bool staying)
-    {
-        m_isStaying = staying;
-        if (staying)
-        {
-            me->StopMoving();
-            me->GetMotionMaster()->Clear(false, true);
-            me->GetMotionMaster()->MoveIdle();
-        }
-    }
+    void SetStaying(bool staying);
 
     std::vector<RaidTargetIcon> m_marksToCC;
     std::vector<RaidTargetIcon> m_marksToFocus;

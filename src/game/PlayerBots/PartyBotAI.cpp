@@ -3435,3 +3435,14 @@ void PartyBotAI::UpdateInCombatAI_Druid()
         }
     }
 }
+
+void PartyBotAI::SetStaying(bool staying)
+{
+    m_isStaying = staying;
+    if (staying)
+    {
+        me->StopMoving();
+        me->GetMotionMaster()->Clear(false, true);
+        me->GetMotionMaster()->MoveIdle();
+    }
+}
