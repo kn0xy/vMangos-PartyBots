@@ -907,6 +907,12 @@ void PartyBotAI::UpdateOutOfCombatAI()
             return;
     }
 
+    // if stay, and currently moving, then stop
+    if (m_isStaying && me->IsMoving())
+    {
+        me->StopMoving();
+    }
+
     switch (me->GetClass())
     {
         case CLASS_PALADIN:
