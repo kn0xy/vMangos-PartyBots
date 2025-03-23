@@ -756,6 +756,12 @@ bool ChatHandler::PartyBotAddRequirementCheck(Player const* pPlayer, Player cons
         return false;
     }
 
+    // Must be resting or inside dungeon to summon bot
+    if (!pPlayer->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING) && !pPlayer->GetMap()->IsDungeon()) {
+        SendSysMessage("You must be resting or inside a dungeon to summon bots.");
+        return false;
+    }
+
     // Spawning bots inside BG will cause server crash on BG end.
     if (pPlayer->InBattleGround())
     {
@@ -979,6 +985,12 @@ bool ChatHandler::HandlePartyBotLoadCommand(char* args)
     if (!pPlayer)
         return false;
 
+    // Must be resting or inside dungeon to summon bot
+    if (!pPlayer->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING) && !pPlayer->GetMap()->IsDungeon()) {
+        SendSysMessage("You must be resting or inside a dungeon to summon bots.");
+        return false;
+    }
+    
     std::string name = ExtractPlayerNameFromLink(&args);
     if (name.empty())
     {
