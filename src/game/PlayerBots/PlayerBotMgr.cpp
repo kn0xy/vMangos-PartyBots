@@ -1025,7 +1025,10 @@ bool ChatHandler::HandlePartyBotCloneCommand(char* args)
     float x, y, z;
     pPlayer->GetNearPoint(pPlayer, x, y, z, 0, 5.0f, frand(0.0f, 6.0f));
 
-    PartyBotAI* ai = new PartyBotAI(pPlayer, pTarget, ROLE_INVALID, botRace, botClass, pPlayer->GetLevel(), pPlayer->GetMapId(), pPlayer->GetMap()->GetInstanceId(), x, y, z, pPlayer->GetOrientation());
+    // Create a new bot instance with the target's race/class
+    PartyBotAI* ai = new PartyBotAI(pPlayer, nullptr, ROLE_INVALID, botRace, botClass, pPlayer->GetLevel(), pPlayer->GetMapId(), pPlayer->GetMap()->GetInstanceId(), x, y, z, pPlayer->GetOrientation());
+    ai->m_cloneGuid = guid; // Tell the bot which character to clone data from
+
     if (sPlayerBotMgr.AddBot(ai))
         SendSysMessage("New party bot added.");
     else
@@ -1044,6 +1047,7 @@ bool ChatHandler::HandlePartyBotLoadCommand(char* args)
     if (!pPlayer)
         return false;
 
+    /* Lavender Dreams customization -- added 3/23/2025 */
     // Must be resting or inside dungeon to summon bot
     if (!pPlayer->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING) && !pPlayer->GetMap()->IsDungeon()) {
         SendSysMessage("You must be resting or inside a dungeon to summon bots.");
