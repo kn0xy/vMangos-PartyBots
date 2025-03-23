@@ -807,11 +807,13 @@ bool ChatHandler::PartyBotAddRequirementCheck(Player const* pPlayer, Player cons
             return false;
         }
 
+        /* Lavender Dreams: disabled 3/23/2025
         if (pPlayer->GetMap()->IsDungeon())
         {
             SendSysMessage("Cannot add bots while inside instances.");
             return false;
         }
+        */
 
         // Clone command.
         if (pTarget)
