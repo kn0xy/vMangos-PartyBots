@@ -336,6 +336,9 @@ bool PartyBotAI::AttackStart(Unit* pVictim)
     if (me->IsMounted())
         me->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
 
+    if (!me->IsInCombat() && HandleInitialCombatEntry(pVictim))
+        return true;
+
     if (me->Attack(pVictim, true))
     {
         if (GetRole() == ROLE_RANGE_DPS &&
@@ -374,17 +377,14 @@ Unit* PartyBotAI::SelectAttackTarget(Player* pLeader) const
     }
     else
     {
-        // Stick to marked target in combat.
-        if (me->IsInCombat() || pLeader->GetVictim())
+        // Always check for marked targets first, regardless of combat state
+        for (auto markId : m_marksToFocus)
         {
-            for (auto markId : m_marksToFocus)
-            {
-                ObjectGuid targetGuid = me->GetGroup()->GetTargetWithIcon(markId);
-                if (targetGuid.IsUnit())
-                    if (Unit* pVictim = me->GetMap()->GetUnit(targetGuid))
-                        if (IsValidHostileTarget(pVictim))
-                            return pVictim;
-            }
+            ObjectGuid targetGuid = me->GetGroup()->GetTargetWithIcon(markId);
+            if (targetGuid.IsUnit())
+                if (Unit* pVictim = me->GetMap()->GetUnit(targetGuid))
+                    if (IsValidHostileTarget(pVictim))
+                        return pVictim;
         }
 
         // Who is the leader attacking.
@@ -949,6 +949,27 @@ void PartyBotAI::UpdateInCombatAI()
 {
     if (!IsInDuel())
     {
+        // Switch target to assigned marks during combat
+        if (!m_marksToFocus.empty())
+        {
+            for (auto markId : m_marksToFocus)
+            {
+                if (Unit* pMarkedTarget = GetMarkedTarget(markId))
+                {
+                    if (IsValidHostileTarget(pMarkedTarget))
+                    {
+                        // If we're not already attacking this target, switch to it
+                        if (me->GetVictim() != pMarkedTarget)
+                        {
+                            me->AttackStop(true);
+                            AttackStart(pMarkedTarget);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
         if (m_role == ROLE_TANK)
         {
             Unit* pVictim = me->GetVictim();
@@ -3445,4 +3466,44 @@ void PartyBotAI::SetStaying(bool staying)
         me->GetMotionMaster()->Clear(false, true);
         me->GetMotionMaster()->MoveIdle();
     }
+}
+
+bool PartyBotAI::HandleInitialCombatEntry(Unit* pVictim)
+{
+    // If we have marked targets to CC, try to CC them first
+    if (!m_marksToCC.empty())
+    {
+        for (auto markId : m_marksToCC)
+        {
+            if (Unit* pMarkedTarget = GetMarkedTarget(markId))
+            {
+                if (IsValidHostileTarget(pMarkedTarget) && CanUseCrowdControl(nullptr, pMarkedTarget))
+                {
+                    // Try to CC the marked target
+                    if (CrowdControlMarkedTargets())
+                    {                        
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // If we have marked targets to focus, try to attack them first
+    if (!m_marksToFocus.empty())
+    {
+        for (auto markId : m_marksToFocus)
+        {
+            if (Unit* pMarkedTarget = GetMarkedTarget(markId))
+            {
+                if (IsValidHostileTarget(pMarkedTarget))
+                {
+                    AttackStart(pMarkedTarget);
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
 }

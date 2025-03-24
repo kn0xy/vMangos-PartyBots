@@ -69,6 +69,7 @@ public:
     bool EnterCombatDruidForm();
     bool ShouldEnterStealth() const;
     bool EnterStealthIfNeeded(SpellEntry const* pStealthSpell);
+    bool HandleInitialCombatEntry(Unit* pVictim);
 
     void UpdateInCombatAI() final;
     void UpdateOutOfCombatAI() final;
